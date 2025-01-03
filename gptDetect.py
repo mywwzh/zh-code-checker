@@ -15,7 +15,12 @@ def detect_gpt_cpp(cpp_file_path):
     # 1. 注释特征
     single_comments = len(re.findall(r'//.*$', code, re.MULTILINE))
     multi_comments = len(re.findall(r'/\*.*?\*/', code, re.DOTALL))
-    total_lines = len(code.split('\n')) or 1
+    
+    # issue #1: 忽略代码尾部空行
+    lines = code.split('\n')
+    while lines and not lines[-1].strip():
+        lines.pop()
+    total_lines = len(lines) or 1
     features['comment_ratio'] = (
         single_comments + multi_comments) / total_lines
 
@@ -30,10 +35,11 @@ def detect_gpt_cpp(cpp_file_path):
 
     # 3. 代码结构特征
     features['avg_line_length'] = sum(
-        len(line.strip()) for line in code.split('\n')) / total_lines
+        len(line.strip()) for line in lines) / total_lines
     features['empty_line_ratio'] = len(
-        [line for line in code.split('\n') if not line.strip()]) / total_lines
-
+        [line for line in lines if not line.strip()]) / total_lines
+    features['total_lines'] = total_lines
+    
     # 4. 函数特征
     features['function_count'] = len(
         re.findall(r'\w+\s+\w+\s*\([^)]*\)\s*{', code))
@@ -49,7 +55,7 @@ def detect_gpt_cpp(cpp_file_path):
     features['postfix_inc_dec'] = len(re.findall(r'[a-zA-Z_]\w*(?:\+\+|--)', code))
     
     # 检测是否使用 bits/stdc++.h
-    features['bits_header'] = '#include <bits/stdc++.h>' in code
+    features['bits_header'] = '<bits/stdc++.h>' in code
     
     # 检测是否有多个 #include
     features['multiple_includes'] = len(re.findall(r'#include', code)) > 2
@@ -77,7 +83,7 @@ def detect_gpt_cpp(cpp_file_path):
         reasons.append("代码行长度规范")
 
     # 空行比例
-    if 0.1 <= features['empty_line_ratio'] <= 0.2:
+    if 0.2 <= features['empty_line_ratio'] <= 0.3 and features['total_lines'] >= 20:
         score += 3
         reasons.append("空行分布合理")
 
